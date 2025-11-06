@@ -7,7 +7,6 @@ on:
 jobs:
   createPage:
     runs-on: ubuntu-latest
-
     steps:
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -29,57 +28,45 @@ jobs:
           npm init -y > /dev/null
           npm install marked node-fetch@2 > /dev/null
 
-          cat > create-page.js << 'JS'
-          const fetch = require('node-fetch');
+          echo "const fetch = require('node-fetch');
           const marked = require('marked');
 
           const title = process.env.ISSUE_TITLE;
           const body = process.env.ISSUE_BODY || 'Нет описания';
           const url = process.env.ISSUE_URL;
-          const bookId = process.env.BOOKSTACK_BOOK_ID;
-          const apiBase = process.env.BOOKSTACK_URL;
 
-          // конвертим markdown из issue в html
           const htmlBody = marked.parse(body);
-
-          // собираем итоговый html
-          const fullHtml =
-            '<p><strong>Связанная задача (GitHub):</strong> <a href="' + url + '">' + url + '</a></p>\n' +
-            htmlBody +
-            '\n<p><strong>Метки:</strong> mobile, layout, github</p>';
+          const fullHtml = \`<p><strong>Связанная задача:</strong> <a href='\${url}'>\${url}</a></p>\n\${htmlBody}\n<p><strong>Метки:</strong> mobile, layout, github</p>\`;
 
           const payload = {
             name: title,
-            book_id: Number(bookId),
-            html: fullHtml,
+            book_id: process.env.BOOKSTACK_BOOK_ID,
+            html: fullHtml
           };
 
-          // шлём в BookStack
-          fetch(apiBase + '/api/pages', {
+          fetch(\`\${process.env.BOOKSTACK_URL}/api/pages\`, {
             method: 'POST',
             headers: {
-              'Authorization': 'Token ' + process.env.BOOKSTACK_API_ID + ':' + process.env.BOOKSTACK_API_SECRET,
+              'Authorization': \`Token \${process.env.BOOKSTACK_API_ID}:\${process.env.BOOKSTACK_API_SECRET}\`,
               'Content-Type': 'application/json',
-              'bypass-tunnel-reminder': '1',
+              'bypass-tunnel-reminder': '1'
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(payload)
           })
-            .then(async (res) => {
-              const text = await res.text();
-              console.log('Status:', res.status, res.statusText);
-              console.log('Response body:', text);
-
-              if (!res.ok) {
-                // чтобы GitHub показал шаг как failed
-                process.exit(1);
-              } else {
-                console.log('Page created successfully');
-              }
-            })
-            .catch(err => {
-              console.error('Request error:', err);
+          .then(async res => {
+            const text = await res.text();
+            console.log('Status:', res.status, res.statusText);
+            console.log('Response body:', text);
+            if (!res.ok) {
               process.exit(1);
-            });
-          JS
+            } else {
+              console.log('Page created successfully');
+            }
+          })
+          .catch(err => {
+            console.error('Request error:', err);
+            process.exit(1);
+          });
+          " > create-page.js
 
           node create-page.js
